@@ -38,8 +38,11 @@ class Status(DishwasherEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        diagnostics = self.dishwasher.automation_diagnostics()
         return {"error": self.dishwasher.error, "automatic": self.dishwasher.automatic,
-                "program": self.dishwasher.program}
+                "program": self.dishwasher.program,
+                "automatic_summary": diagnostics["summary"],
+                "automatic_reasons": diagnostics["reasons"]}
 
 
 class AutomationReadiness(DishwasherEntity, SensorEntity):
@@ -47,11 +50,11 @@ class AutomationReadiness(DishwasherEntity, SensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, dishwasher):
-        super().__init__(dishwasher, "automation_readiness", "Automation readiness", "mdi:list-status")
+        super().__init__(dishwasher, "automation_readiness", "Automatic NightWash status", "mdi:list-status")
 
     @property
     def native_value(self):
-        return "Ready" if self.dishwasher.automation_diagnostics()["ready"] else "Blocked"
+        return self.dishwasher.automation_diagnostics()["summary"]
 
     @property
     def extra_state_attributes(self):
@@ -64,14 +67,12 @@ class SourceCheck(DishwasherEntity, SensorEntity):
 
     def __init__(self, dishwasher, key):
         self.key = key
-        super().__init__(dishwasher, f"{key}_check", f"{key.title()} check", "mdi:check-decagram-outline")
+        name = "Door for scheduled wash" if key == "door" else "Dishwasher activity"
+        super().__init__(dishwasher, f"{key}_check", name, "mdi:check-decagram-outline")
 
     @property
     def native_value(self):
-        check = self.extra_state_attributes
-        if check["availability"] != "available":
-            return check["availability"].title()
-        return "Passed" if check["matches"] else "Blocked"
+        return self.extra_state_attributes["explanation"]
 
     @property
     def extra_state_attributes(self):

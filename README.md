@@ -35,7 +35,7 @@ This is a HACS custom repository; it is not listed in the default HACS catalog.
 The repository must be public and these files must be pushed to GitHub before
 HACS can download them. Releases are optional for custom-repository installation;
 without releases HACS uses the default branch. For versioned updates, publish a
-GitHub release whose tag matches `manifest.json` (currently `v0.2.1`).
+GitHub release whose tag matches `manifest.json` (currently `v0.2.2`).
 See [HACS integration requirements](https://www.hacs.dev/docs/publish/integration/).
 
 ### Manual installation
@@ -72,17 +72,21 @@ The device's diagnostic sensors explain the inputs used by automatic scheduling:
 
 | Diagnostic sensor | Expected state | Information in its attributes |
 | --- | --- | --- |
-| Door check | `Closed` | Source entity ID, current state, expected states, match and availability |
-| Operation check | `Ready`, `Inactive` or `Finished` | Source entity ID, current state, expected states, match and availability |
-| Automation readiness | All prerequisites pass | Every check's current/expected value, blocking reasons, last completion age and 48-hour eligibility time |
+| Door for scheduled wash | `Closed` | Says “Door closed” or “Close the dishwasher door”; includes source entity and current/expected states |
+| Dishwasher activity | `Ready`, `Inactive` or `Finished` | Says “Dishwasher idle”, “Wash in progress”, “Wash is paused”, or explains the unexpected state |
+| Automatic NightWash status | All prerequisites pass | Explains why scheduling is off or waiting, with every current/expected value and 48-hour eligibility time |
 
 Click a sensor and expand its attributes (or inspect it in Developer Tools →
-States). For example, Door check shows `Blocked` with `current: Open` and
+States). For example, Door for scheduled wash shows `Close the dishwasher door` with `current: Open` and
 `expected: [Closed]`. Missing entities, `unknown` and `unavailable` states are
-reported explicitly. Automation readiness also checks whether automatic mode is
+reported explicitly. Automatic NightWash status also checks whether automatic mode is
 on, no schedule is already armed, no start is pending, and NightWash is configured.
-`Blocked` can therefore be normal when a schedule is already armed; it means a
-**new automatic schedule** cannot be created, not that the existing one failed.
+An existing schedule shows `A wash is already scheduled`, rather than an error.
+These checks explain whether a **new automatic schedule** can be created.
+All unmet conditions appear as plain-language `reasons` in the sensor attributes
+and directly on the dishwasher card, without needing to open the diagnostic sensors.
+Existing diagnostic entity IDs are retained so dashboards keep working; their
+display names and states are clearer. User-customized entity names remain yours.
 
 Diagnostics refresh on door/operation changes, local schedule changes, startup
 and each half-hour check. Completion age uses the stored/imported completion,
@@ -137,7 +141,7 @@ dashboards were not modified during development.
 
 1. Set up Bosch Local as above. HACS installs the bundled card with the
    integration, so it needs no separate frontend repository or file copy.
-2. Add dashboard resource `/bosch_local/bosch-local-card.js?v=0.2.0` with type
+2. Add dashboard resource `/bosch_local/bosch-local-card.js?v=0.2.2` with type
    **JavaScript module**, then reload your browser. If upgrading from the earlier
    manually copied card, replace its `/local/bosch-local-card.js` resource instead
    of loading both. Update the query version after future card upgrades.

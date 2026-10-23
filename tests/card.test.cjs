@@ -59,6 +59,14 @@ test('start date opens the HA date editor', () => {
   assert.equal(instance.event.detail.entityId, 'test.start');
 });
 
+test('scheduling reasons are visible without opening sensor attributes', () => {
+  const { instance, element } = card();
+  instance._hass.states['test.status'].attributes.automatic_reasons =
+    ['Automatic NightWash is off', 'Close the dishwasher door'];
+  instance.hass = instance._hass;
+  assert.equal(element('reason').textContent, 'Automatic NightWash is off. Close the dishwasher door');
+});
+
 test('service errors are displayed and controls recover', async () => {
   const { instance, element } = card();
   instance._hass.callService = async () => { throw new Error('Set a future start time first'); };

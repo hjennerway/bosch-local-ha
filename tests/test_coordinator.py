@@ -186,6 +186,28 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("door", data["blocking_reasons"])
         self.assertIn("operation", data["blocking_reasons"])
 
+    def test_explanations_show_all_reasons_and_normal_scheduled_state(self):
+        self.states["sensor.door"].state = "Open"
+        self.states["sensor.operation"].state = "Run"
+        data = self.device.automation_diagnostics()
+        self.assertEqual(data["summary"], "Automatic NightWash is off")
+        self.assertIn("Close the dishwasher door", data["reasons"])
+        self.assertIn("Wash in progress", data["reasons"])
+        self.assertTrue(any("No completed wash date" in reason for reason in data["reasons"]))
+        self.device.armed = True
+        self.assertEqual(self.device.automation_diagnostics()["summary"], "A wash is already scheduled")
+        self.device.pending = True
+        self.assertEqual(self.device.automation_diagnostics()["summary"], "Waiting for dishwasher to start")
+
+    def test_explanations_distinguish_waiting_and_ready(self):
+        self.device.automatic = True
+        self.device.last_run = self.now - timedelta(hours=47)
+        self.assertEqual(self.device.automation_diagnostics()["summary"],
+                         "Waiting until 48 hours after the last completed wash")
+        self.device.last_run = self.now - timedelta(hours=48)
+        self.assertEqual(self.device.automation_diagnostics()["summary"],
+                         "Ready to schedule the next 01:00 wash")
+
     def test_diagnostics_distinguish_missing_unknown_and_unavailable(self):
         for value, availability in ((None, "missing"), ("unknown", "unknown"),
                                     ("unavailable", "unavailable")):

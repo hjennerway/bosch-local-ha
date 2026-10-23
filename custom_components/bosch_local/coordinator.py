@@ -14,6 +14,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .schedule import program_payload, validate_start
+from .explanations import explain_automation, source_explanation
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -147,7 +148,13 @@ class Dishwasher:
             ("nightwash_configured", "NightWash" in self.programs, True),
         ):
             checks[key] = {"current": current, "expected": expected, "matches": current == expected}
+        for key in ("door", "operation"):
+            checks[key]["explanation"] = source_explanation(key, checks[key])
+        summary, reasons = explain_automation(checks)
         return {
+            "summary": summary,
+            "reasons": reasons,
+            "meaning": "Whether a new automatic NightWash schedule can be created",
             "ready": all(check["matches"] for check in checks.values()),
             "blocking_reasons": [key for key, check in checks.items() if not check["matches"]],
             "checks": checks,

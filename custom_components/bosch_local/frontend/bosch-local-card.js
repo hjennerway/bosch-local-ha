@@ -32,6 +32,7 @@ class BoschLocalCard extends HTMLElement {
         <div class="row"><label for="automatic">Automatic NightWash<br><span class="muted">Next 01:00 after 48 hours</span></label>
           <button id="automatic" aria-pressed="false">Off</button></div>
         <div id="status" class="muted" role="status"></div>
+        <div id="reason" class="muted"></div>
         <div id="last" class="muted"></div>
         <button id="clear"><ha-icon icon="mdi:calendar-remove"></ha-icon> Clear schedule</button>
         <div id="error" role="alert" hidden></div>
@@ -79,6 +80,10 @@ class BoschLocalCard extends HTMLElement {
       usable("start") ? `Start: ${this._date(get("start").state)}` : "Set start date and time";
     this.shadowRoot.getElementById("clear").disabled = !get("clear") || get("clear").state === "unavailable" || !!this._busy;
     this.shadowRoot.getElementById("status").textContent = get("status")?.state || "Schedule status unavailable";
+    const statusAttributes = get("status")?.attributes || {};
+    const reasons = statusAttributes.automatic_reasons;
+    this.shadowRoot.getElementById("reason").textContent =
+      Array.isArray(reasons) && reasons.length ? reasons.join(". ") : (statusAttributes.automatic_summary || "");
     this.shadowRoot.getElementById("last").textContent =
       `Last completed wash: ${usable("last_run") ? this._date(get("last_run").state) : "Unknown"}`;
     const missing = Object.keys(this._config).filter((key) =>
