@@ -1,12 +1,16 @@
 """Completed-wash timestamp and schedule status."""
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
+from homeassistant.helpers.entity import EntityCategory
 from .const import DOMAIN
 from .entity import DishwasherEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     dishwasher = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([LastRun(dishwasher), Status(dishwasher)])
+    async_add_entities([
+        LastRun(dishwasher), Status(dishwasher), AutomationReadiness(dishwasher),
+        SourceCheck(dishwasher, "door"), SourceCheck(dishwasher, "operation"),
+    ])
 
 
 class LastRun(DishwasherEntity, SensorEntity):
@@ -36,3 +40,39 @@ class Status(DishwasherEntity, SensorEntity):
     def extra_state_attributes(self):
         return {"error": self.dishwasher.error, "automatic": self.dishwasher.automatic,
                 "program": self.dishwasher.program}
+
+
+class AutomationReadiness(DishwasherEntity, SensorEntity):
+    """Explain every condition preventing a new automatic NightWash schedule."""
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, dishwasher):
+        super().__init__(dishwasher, "automation_readiness", "Automation readiness", "mdi:list-status")
+
+    @property
+    def native_value(self):
+        return "Ready" if self.dishwasher.automation_diagnostics()["ready"] else "Blocked"
+
+    @property
+    def extra_state_attributes(self):
+        return self.dishwasher.automation_diagnostics()
+
+
+class SourceCheck(DishwasherEntity, SensorEntity):
+    """Keep missing and unavailable inputs visible rather than hiding the check."""
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, dishwasher, key):
+        self.key = key
+        super().__init__(dishwasher, f"{key}_check", f"{key.title()} check", "mdi:check-decagram-outline")
+
+    @property
+    def native_value(self):
+        check = self.extra_state_attributes
+        if check["availability"] != "available":
+            return check["availability"].title()
+        return "Passed" if check["matches"] else "Blocked"
+
+    @property
+    def extra_state_attributes(self):
+        return self.dishwasher.automation_diagnostics()["checks"][self.key]

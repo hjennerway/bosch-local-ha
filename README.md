@@ -35,7 +35,7 @@ This is a HACS custom repository; it is not listed in the default HACS catalog.
 The repository must be public and these files must be pushed to GitHub before
 HACS can download them. Releases are optional for custom-repository installation;
 without releases HACS uses the default branch. For versioned updates, publish a
-GitHub release whose tag matches `manifest.json` (currently `v0.2.0`).
+GitHub release whose tag matches `manifest.json` (currently `v0.2.1`).
 See [HACS integration requirements](https://www.hacs.dev/docs/publish/integration/).
 
 ### Manual installation
@@ -64,6 +64,30 @@ arbitrary program states are rejected. Existing HCPY sensors are reused.
 The **Bosch Local Dishwasher** device contains Scheduled program, Scheduled
 start, Schedule armed, Automatic NightWash, Clear schedule, Last completed wash,
 and Schedule status (with an `error` attribute).
+
+### Automation diagnostics
+
+Open **Settings → Devices & services → Bosch Local → Bosch Local Dishwasher**.
+The device's diagnostic sensors explain the inputs used by automatic scheduling:
+
+| Diagnostic sensor | Expected state | Information in its attributes |
+| --- | --- | --- |
+| Door check | `Closed` | Source entity ID, current state, expected states, match and availability |
+| Operation check | `Ready`, `Inactive` or `Finished` | Source entity ID, current state, expected states, match and availability |
+| Automation readiness | All prerequisites pass | Every check's current/expected value, blocking reasons, last completion age and 48-hour eligibility time |
+
+Click a sensor and expand its attributes (or inspect it in Developer Tools →
+States). For example, Door check shows `Blocked` with `current: Open` and
+`expected: [Closed]`. Missing entities, `unknown` and `unavailable` states are
+reported explicitly. Automation readiness also checks whether automatic mode is
+on, no schedule is already armed, no start is pending, and NightWash is configured.
+`Blocked` can therefore be normal when a schedule is already armed; it means a
+**new automatic schedule** cannot be created, not that the existing one failed.
+
+Diagnostics refresh on door/operation changes, local schedule changes, startup
+and each half-hour check. Completion age uses the stored/imported completion,
+not the current value of the old helper. These checks describe the scheduling
+rules; they do not test MQTT connectivity or the appliance's remote-start setting.
 
 ## Behaviour and migration
 

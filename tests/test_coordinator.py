@@ -173,3 +173,52 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         self.device.last_run = self.now - timedelta(days=3)
         await self.device.async_set_automatic(True)
         self.assertEqual(self.device.start, datetime(2026, 10, 25, 0, tzinfo=timezone.utc))
+
+    def test_diagnostics_explain_current_and_expected_source_states(self):
+        self.states["sensor.door"].state = "Open"
+        self.states["sensor.operation"].state = "DelayedStart"
+        data = self.device.automation_diagnostics()
+        door = data["checks"]["door"]
+        self.assertEqual(door["entity_id"], "sensor.door")
+        self.assertEqual(door["current"], "Open")
+        self.assertEqual(door["expected"], ["Closed"])
+        self.assertFalse(door["matches"])
+        self.assertIn("door", data["blocking_reasons"])
+        self.assertIn("operation", data["blocking_reasons"])
+
+    def test_diagnostics_distinguish_missing_unknown_and_unavailable(self):
+        for value, availability in ((None, "missing"), ("unknown", "unknown"),
+                                    ("unavailable", "unavailable")):
+            if value is None:
+                self.states.pop("sensor.door", None)
+            else:
+                self.states["sensor.door"] = SimpleNamespace(state=value)
+            check = self.device.automation_diagnostics()["checks"]["door"]
+            self.assertEqual(check["availability"], availability)
+            self.assertFalse(check["matches"])
+
+    def test_diagnostics_cover_history_threshold_and_schedule_gates(self):
+        self.device.automatic = True
+        self.assertIn("last_completed_wash", self.device.automation_diagnostics()["blocking_reasons"])
+        self.device.last_run = self.now - timedelta(hours=48) + timedelta(seconds=1)
+        self.assertFalse(self.device.automation_diagnostics()["ready"])
+        self.device.last_run = self.now - timedelta(hours=48)
+        data = self.device.automation_diagnostics()
+        self.assertTrue(data["ready"])
+        self.assertEqual(data["checks"]["last_completed_wash"]["eligible_at"], self.now.isoformat())
+        self.device.armed = self.device.pending = True
+        self.device.programs = {}
+        self.assertEqual(self.device.automation_diagnostics()["blocking_reasons"],
+                         ["schedule_armed", "start_pending", "nightwash_configured"])
+
+    async def test_blocked_source_update_refreshes_diagnostics_without_storage_write(self):
+        listener = Mock()
+        self.device.listeners.add(listener)
+        self.states["sensor.door"].state = "Open"
+        await self.device._state_changed(SimpleNamespace(data={
+            "entity_id": "sensor.door", "old_state": SimpleNamespace(state="Closed"),
+            "new_state": self.states["sensor.door"],
+        }))
+        listener.assert_called_once()
+        self.device._store.async_save.assert_not_awaited()
+        coordinator.mqtt.async_publish.assert_not_awaited()

@@ -105,8 +105,54 @@ class Dishwasher:
             "automatic": self.automatic,
             "pending": self.pending,
         })
+        self._notify()
+
+    @callback
+    def _notify(self):
         for listener in tuple(self.listeners):
             listener()
+
+    def automation_diagnostics(self):
+        """Describe the exact scheduling prerequisites using current HA states."""
+        checks = {}
+        for key, config_key, expected in (
+            ("door", "door_entity", ["Closed"]),
+            ("operation", "operation_state_entity", ["Ready", "Inactive", "Finished"]),
+        ):
+            entity_id = self.entry.data[config_key]
+            state = self.hass.states.get(entity_id)
+            current = state.state if state else None
+            checks[key] = {
+                "entity_id": entity_id,
+                "current": current,
+                "expected": expected,
+                "matches": current in expected,
+                "availability": "missing" if state is None else (
+                    current if current in ("unknown", "unavailable") else "available"),
+            }
+        now = dt_util.utcnow()
+        age = (now - self.last_run).total_seconds() if self.last_run else None
+        checks["last_completed_wash"] = {
+            "current": self.last_run.isoformat() if self.last_run else None,
+            "expected": "A recorded completion at least 48 hours ago",
+            "age_hours": round(age / 3600, 2) if age is not None else None,
+            "eligible_at": (self.last_run + timedelta(hours=48)).isoformat() if self.last_run else None,
+            "matches": age is not None and age >= 172800,
+            "import_entity_id": self.entry.data.get("last_run_entity"),
+        }
+        for key, current, expected in (
+            ("automatic_enabled", self.automatic, True),
+            ("schedule_armed", self.armed, False),
+            ("start_pending", self.pending, False),
+            ("nightwash_configured", "NightWash" in self.programs, True),
+        ):
+            checks[key] = {"current": current, "expected": expected, "matches": current == expected}
+        return {
+            "ready": all(check["matches"] for check in checks.values()),
+            "blocking_reasons": [key for key, check in checks.items() if not check["matches"]],
+            "checks": checks,
+            "evaluated_at": now.isoformat(),
+        }
 
     async def async_select(self, program):
         async with self._lock:
@@ -169,6 +215,14 @@ class Dishwasher:
         await self._auto_check()
 
     async def _auto_check(self, _now=None):
+        # Refresh diagnostics even when a changed source state blocks scheduling.
+        # This is an in-memory notification, not a persistent storage write.
+        try:
+            await self._evaluate_automatic()
+        finally:
+            self._notify()
+
+    async def _evaluate_automatic(self):
         async with self._lock:
             if not self.automatic or self.armed or self.pending or not self.last_run or not self._ready():
                 return
