@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Bosch Local card preview</title>
+<style>
+  :root { color-scheme:dark; --primary-text-color:#e8eaf0; --secondary-text-color:#adb3c2; --secondary-background-color:#262b36; --divider-color:#414857; --success-color:#7bdd9e; --error-color:#ff9393; }
+  body { background:#151922; color:var(--primary-text-color); font:16px system-ui; max-width:440px; margin:60px auto; padding:16px; }
+  ha-card { display:block; background:#202530; border-radius:20px; }
+</style>
+<p>Preview · sample data · no appliance connection</p>
+<bosch-local-card></bosch-local-card>
+<p id="action" role="status"></p>
+<script src="../custom_components/bosch_local/frontend/bosch-local-card.js"></script>
+<script>
+  const card = document.querySelector('bosch-local-card');
+  const config = {
+    program:'select.program', armed:'switch.armed', start:'datetime.start',
+    automatic:'switch.automatic', clear:'button.clear', last_run:'sensor.last', status:'sensor.status'
+  };
+  card.setConfig(config);
+  const hass = {
+    config: {time_zone:'Europe/London'}, locale:{language:'en-GB'},
+    states: {
+      'select.program': {state:'NightWash',attributes:{options:['NightWash']}},
+      'switch.armed': {state:'on',attributes:{}},
+      'datetime.start': {state:'2026-10-24T00:00:00+00:00',attributes:{}},
+      'switch.automatic': {state:'on',attributes:{}},
+      'button.clear': {state:'unknown',attributes:{}},
+      'sensor.last': {state:'2026-10-21T00:00:00+00:00',attributes:{}},
+      'sensor.status': {state:'Scheduled',attributes:{}}
+    },
+    async callService(domain, service, data) {
+      document.getElementById('action').textContent = `${domain}.${service} → ${data.entity_id} (preview only)`;
+      if (domain === 'button') {
+        hass.states['switch.armed'].state = 'off';
+        hass.states['switch.automatic'].state = 'off';
+        hass.states['datetime.start'].state = 'unknown';
+        hass.states['sensor.status'].state = 'Not scheduled';
+      } else if (domain === 'switch') {
+        hass.states[data.entity_id].state = service === 'turn_on' ? 'on' : 'off';
+      }
+      card.hass = hass;
+    }
+  };
+  card.hass = hass;
+  card.addEventListener('hass-more-info', () => {
+    document.getElementById('action').textContent = 'Home Assistant opens its date/time editor here.';
+  });
+</script>
+</html>

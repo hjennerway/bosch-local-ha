@@ -1,0 +1,9 @@
+type: custom:bosch-local-card
+name: Dishwasher
+program: select.bosch_local_dishwasher_scheduled_program
+armed: switch.bosch_local_dishwasher_schedule_armed
+start: datetime.bosch_local_dishwasher_scheduled_start
+automatic: switch.bosch_local_dishwasher_automatic_nightwash
+clear: button.bosch_local_dishwasher_clear_schedule
+last_run: sensor.bosch_local_dishwasher_last_completed_wash
+status: sensor.bosch_local_dishwasher_schedule_status

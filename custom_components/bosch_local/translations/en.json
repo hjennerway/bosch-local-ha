@@ -1,0 +1,20 @@
+{
+  "title": "Bosch Local",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dishwasher",
+        "description": "Use the appliance MQTT topic and program IDs from your existing HCPY configuration. Schedules are kept in Home Assistant; no delayed-start state is written to the appliance.",
+        "data": {
+          "topic": "Appliance MQTT base topic (without /activeProgram)",
+          "programs": "Programs as a JSON object mapping names to integer IDs",
+          "operation_state_entity": "Dishwasher operation state sensor",
+          "door_entity": "Dishwasher door sensor (Closed means ready)",
+          "last_run_entity": "Existing last-run helper (imported once)"
+        }
+      }
+    },
+    "error": {"invalid_config": "Enter a valid MQTT topic and a JSON object containing positive integer program IDs."},
+    "abort": {"already_configured": "This dishwasher is already configured."}
+  }
+}
